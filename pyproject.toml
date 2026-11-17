@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Wrapper for mkslides with a shared theme and preprocessor"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["mkslides>=2.0.0", "click", "pillow"]
+dependencies = ["mkslides>=2.0.0", "click", "pillow", "omegaconf"]
 
 [project.scripts]
 melasa = "melasa.cli:main"

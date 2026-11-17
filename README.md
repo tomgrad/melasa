@@ -1,7 +1,5 @@
-# mkslides-theme
-My MkSlides theme
-
-Use this theme with [MkSlides](https://github.com/MartenBE/mkslides) to create slides with a two-column layout and other features.
+# melasa
+Wrapper for [MkSlides](https://github.com/MartenBE/mkslides) that adds preprocessor tags (columns, boxes, ...) with a small structural theme, and a library of styles for new decks.
 
 
 ## Features
@@ -19,16 +17,17 @@ Use this theme with [MkSlides](https://github.com/MartenBE/mkslides) to create s
 ## Usage
 
 ```
-melasa init               # create index.md, style.css and mkslides.yml
+melasa init [--style NAME]  # create index.md, style.css and mkslides.yml
+melasa init --list          # list available styles
 melasa serve [PATH]      # live preview, PATH defaults to .
 melasa build [PATH]      # writes site-<dirname> in the current directory
 melasa build PATH -d out --optimize --max-size 1920 --quality 82
 melasa optimize SITE_DIR # optimize an already built site
 ```
 
-The shared `preprocessor.py`, `custom.css` and `mkslides.yml` ship with the package, nothing is copied into the slides directory. A deck can still override them by having its own `custom.css`, `preprocessor.py` (replace the shared ones) or `mkslides.yml` (merged over the defaults).
+The shared `preprocessor.py`, `melasa.css` (structural CSS for the tags) and base `mkslides.yml` ship with the package, nothing is copied into the slides directory. A deck's `mkslides.yml` is merged over the defaults.
 
-The reveal.js theme is selected in `mkslides.yml`:
+The reveal.js theme is selected by name in `mkslides.yml`:
 
 ```yaml
 slides:
@@ -38,8 +37,12 @@ slides:
 CSS is applied in this order, so later layers override earlier ones:
 
 1. the reveal.js theme from `slides.theme`
-2. the shared `custom.css` (or a deck-local `custom.css`, which replaces it)
-3. an optional `style.css` in the deck root, layered on top of the active theme
+2. the shared `melasa.css` (layout for the custom tags only)
+3. an optional `style.css` in the deck root: your overrides, loaded last
+
+## Styles
+
+`melasa init --style NAME` copies a style from the library into the deck: its `style.css` (overrides only, no theme import) and a `mkslides.yml` naming the reveal.js theme. The library lives in `src/melasa/data/styles/<name>/`; to add a style, create a directory there with those two files.
 
 `--optimize` is off by default. It only touches the built site: images larger than `--max-size` are scaled down, PNG/JPEG are converted to WebP (kept only when smaller), and references in the site are updated. Sources are never modified.
 
