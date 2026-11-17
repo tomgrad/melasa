@@ -6,7 +6,7 @@ import pytest
 from click.testing import CliRunner
 from omegaconf import OmegaConf
 
-from melasa.cli import DATA, main, stage
+from melasa.cli import DATA, main, patch_build, stage
 
 
 def test_init_creates_starter_files(tmp_path: Path, monkeypatch) -> None:
@@ -225,3 +225,43 @@ def test_stage_rejects_unknown_local_theme(tmp_path: Path) -> None:
 
     with pytest.raises(click.ClickException, match="custom.css"):
         stage(deck, stage_dir)
+
+
+def _mk_serve():
+    import mkslides.serve as mk_serve
+
+    return mk_serve
+
+
+def test_serve_reload_runs_synchronously(tmp_path: Path) -> None:
+    mk_serve = _mk_serve()
+    deck = tmp_path / "deck"
+    deck.mkdir()
+    stage_dir = tmp_path / "stage"
+    stage_dir.mkdir()
+
+    patch_build(stage(deck, stage_dir), deck, stage_dir)
+
+    calls = []
+    timer = mk_serve.threading.Timer(60, lambda: calls.append(1))
+    timer.daemon = True
+    timer.start()
+    assert calls == [1]
+
+
+def test_serve_reload_restages_deck_config(tmp_path: Path) -> None:
+    mk_serve = _mk_serve()
+    deck = tmp_path / "deck"
+    deck.mkdir()
+    (deck / "mkslides.yml").write_text("slides:\n  theme: league\n")
+    stage_dir = tmp_path / "stage"
+    stage_dir.mkdir()
+    staged = stage(deck, stage_dir)
+    patch_build(staged, deck, stage_dir)
+
+    (deck / "mkslides.yml").write_text("slides:\n  theme: sky\n")
+    (deck / "style.css").write_text(".a{}\n")
+    mk_serve.get_config(staged.config)
+
+    assert "theme/sky.css" in staged.theme.read_text()
+    assert staged.theme.read_text().splitlines()[-1] == '@import url("style.css");'

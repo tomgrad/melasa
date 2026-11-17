@@ -89,23 +89,64 @@ def stage(deck: Path, stage_dir: Path) -> Staged:
     return Staged(config_file, theme, base_theme, style)
 
 
-def patch_build(staged: Staged) -> None:
-    """mkslides expects the CSS inside the output dir; copy it after every build."""
+class _SyncTimer:
+    """Stand-in for threading.Timer that runs the callback immediately.
+
+    mkslides debounces rebuilds on a timer thread, but livereload tells the
+    browser to reload as soon as the watcher callback returns, i.e. before the
+    rebuild is done (you see the previous save). Running the rebuild inline
+    makes the reload happen after it.
+    """
+
+    daemon = True
+
+    def __init__(self, interval, function) -> None:
+        self.function = function
+
+    def start(self) -> None:
+        self.function()
+
+    def cancel(self) -> None:
+        pass
+
+
+def patch_build(staged: Staged, deck: Path, stage_dir: Path) -> None:
+    """Hook mkslides' build/serve: copy our CSS into the output and keep serve live.
+
+    mkslides expects the CSS inside the output dir, so copy it after every build.
+    On every serve reload the deck is staged again, so edits to the deck's
+    mkslides.yml or style.css apply, and the rebuild finishes before the
+    browser reloads.
+    """
+    import types
+
     import mkslides.__main__ as main
     import mkslides.serve as serve
 
-    original = main.build
+    current = [staged]
+    original_build = main.build
+    original_get_config = serve.get_config
 
     def build(config, input_path, output_path, strict):
-        original(config, input_path, output_path, strict)
+        original_build(config, input_path, output_path, strict)
         output = Path(output_path)
-        for asset in (staged.theme, staged.base_theme):
+        latest = current[0]
+        for asset in (latest.theme, latest.base_theme):
             shutil.copy(asset, output / asset.name)
-        if staged.style:
-            shutil.copy(staged.style, output / staged.style.name)
+        if latest.style:
+            shutil.copy(latest.style, output / latest.style.name)
+
+    def get_config(config_path):
+        try:
+            current[0] = stage(deck, stage_dir)
+        except click.ClickException as error:
+            click.echo(f"melasa: {error.message}; keeping the previous config", err=True)
+        return original_get_config(config_path)
 
     main.build = build
     serve.build = build
+    serve.get_config = get_config
+    serve.threading = types.SimpleNamespace(Timer=_SyncTimer)
 
 
 path_arg = click.argument(
@@ -119,6 +160,9 @@ path_arg = click.argument(
 def main() -> None:
     """Build and serve slides with the shared melasa theme.
 
+    Start a deck with `init [--style NAME]`; `init --list` shows the available
+    styles.
+
     Image optimization (resize, PNG/JPEG to WebP) is off by default: use
     `build --optimize`, or `optimize SITE_DIR` on an existing site.
     Sources are never modified, only the built site.
@@ -126,10 +170,14 @@ def main() -> None:
 
 
 @main.command()
-@click.option("--style", default=DEFAULT_STYLE, show_default=True, help="Style from the library to start from.")
+@click.option("--style", metavar="NAME", default=DEFAULT_STYLE, show_default=True, help="Style from the library: copies its style.css and mkslides.yml (reveal.js theme).")
 @click.option("--list", "list_only", is_flag=True, help="List available styles and exit.")
 def init(style: str, list_only: bool) -> None:
-    """Create a starter presentation (index.md, style.css, mkslides.yml)."""
+    """Create a starter presentation (index.md, style.css, mkslides.yml).
+
+    style.css holds only your overrides; the reveal.js theme is named in
+    mkslides.yml. Use --list to see the available styles.
+    """
     styles = list_styles()
     if list_only:
         click.echo("\n".join(styles))
@@ -197,7 +245,7 @@ def run_mkslides(args: list[str], deck: Path) -> None:
     previous_dir = Path.cwd()
     with tempfile.TemporaryDirectory(prefix="melasa_") as tmp:
         staged = stage(deck, Path(tmp))
-        patch_build(staged)
+        patch_build(staged, deck, Path(tmp))
         os.chdir(tmp)
         try:
             cli([args[0], "-f", str(staged.config), *args[1:]], standalone_mode=False)
