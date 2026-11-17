@@ -265,3 +265,20 @@ def test_serve_reload_restages_deck_config(tmp_path: Path) -> None:
 
     assert "theme/sky.css" in staged.theme.read_text()
     assert staged.theme.read_text().splitlines()[-1] == '@import url("style.css");'
+
+
+def test_stage_does_not_touch_unchanged_config(tmp_path: Path) -> None:
+    deck = tmp_path / "deck"
+    deck.mkdir()
+    stage_dir = tmp_path / "stage"
+    stage_dir.mkdir()
+    staged = stage(deck, stage_dir)
+    old = staged.config.stat().st_mtime_ns
+    import os
+
+    os.utime(staged.config, ns=(old - 10**9, old - 10**9))
+    marked = staged.config.stat().st_mtime_ns
+
+    stage(deck, stage_dir)
+
+    assert staged.config.stat().st_mtime_ns == marked

@@ -85,7 +85,10 @@ def stage(deck: Path, stage_dir: Path) -> Staged:
     config.slides.preprocess_script = str(pre)
 
     config_file = stage_dir / "mkslides.yml"
-    OmegaConf.save(config, config_file)
+    rendered = OmegaConf.to_yaml(config)
+    # serve watches this file: rewriting identical content would retrigger a rebuild forever.
+    if not config_file.is_file() or config_file.read_text() != rendered:
+        config_file.write_text(rendered)
     return Staged(config_file, theme, base_theme, style)
 
 
