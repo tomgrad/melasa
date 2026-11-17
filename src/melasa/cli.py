@@ -17,27 +17,13 @@ BASE_THEME_NAME = "melasa.css"
 STYLE_NAME = "style.css"
 DATA = resources.files("melasa") / "data"
 
-STARTER_INDEX = """# Title
+STARTER_FILES = ("index.md", "style.css", "mkslides.yml")
+DEFAULT_STYLE = "default"
 
----
 
-## Slide
-"""
-
-STARTER_STYLE = """/* Per-deck overrides, loaded after the selected reveal.js theme and melasa's shared theme. */
-"""
-
-STARTER_CONFIG = """slides:
-    # Pick any reveal.js theme: beige, black, league, sky, night, serif,
-    # simple, solarized, moon, dracula, ...
-    theme: beige
-"""
-
-STARTER_FILES = {
-    "index.md": STARTER_INDEX,
-    "style.css": STARTER_STYLE,
-    "mkslides.yml": STARTER_CONFIG,
-}
+def list_styles() -> list[str]:
+    """Names of the styles shipped in data/styles, sorted."""
+    return sorted(p.name for p in (DATA / "styles").iterdir() if p.is_dir())
 
 
 def deck_dir(path: Path) -> Path:
@@ -135,8 +121,17 @@ def main() -> None:
 
 
 @main.command()
-def init() -> None:
+@click.option("--style", default=DEFAULT_STYLE, show_default=True, help="Style from the library to start from.")
+@click.option("--list", "list_only", is_flag=True, help="List available styles and exit.")
+def init(style: str, list_only: bool) -> None:
     """Create a starter presentation (index.md, style.css, mkslides.yml)."""
+    styles = list_styles()
+    if list_only:
+        click.echo("\n".join(styles))
+        return
+    if style not in styles:
+        raise click.ClickException(f"unknown style {style!r}; available: {', '.join(styles)}")
+
     existing = [name for name in STARTER_FILES if (Path.cwd() / name).exists()]
     if existing:
         verb = "exists" if len(existing) == 1 else "exist"
@@ -144,7 +139,13 @@ def init() -> None:
             f"{', '.join(existing)} already {verb}; refusing to overwrite"
         )
 
-    for name, content in STARTER_FILES.items():
+    source = DATA / "styles" / style
+    contents = {
+        "index.md": DATA.joinpath("starter_index.md").read_text(),
+        "style.css": source.joinpath("style.css").read_text(),
+        "mkslides.yml": source.joinpath("mkslides.yml").read_text(),
+    }
+    for name, content in contents.items():
         path = Path.cwd() / name
         path.write_text(content)
         click.echo(f"Created {path}")

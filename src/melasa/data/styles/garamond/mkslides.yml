@@ -1,0 +1,4 @@
+slides:
+    # Pick any reveal.js theme: beige, black, league, sky, night, serif,
+    # simple, solarized, moon, dracula, ...
+    theme: beige

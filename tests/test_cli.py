@@ -26,6 +26,48 @@ def test_init_creates_starter_files(tmp_path: Path, monkeypatch) -> None:
     assert "league" in config.read_text()
 
 
+def test_init_garamond_copies_style(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(main, ["init", "--style", "garamond"])
+
+    assert result.exit_code == 0, result.output
+    style = (tmp_path / "style.css").read_text()
+    assert "EB Garamond" in style
+    assert "reveal-js/dist/theme" not in style
+    assert "theme: beige" in (tmp_path / "mkslides.yml").read_text()
+
+
+def test_init_unknown_style(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(main, ["init", "--style", "nope"])
+
+    assert result.exit_code != 0
+    assert "default" in result.output and "garamond" in result.output
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_init_list(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(main, ["init", "--list"])
+
+    assert result.exit_code == 0
+    assert result.output.split() == ["default", "garamond"]
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_starter_index_demos_tags(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    CliRunner().invoke(main, ["init"])
+
+    index = (tmp_path / "index.md").read_text()
+    for tag in ("<!-- c21 -->", "<!-- box -->", "<!-- footnote -->"):
+        assert tag in index
+
+
 def test_init_refuses_to_overwrite_existing_index(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "index.md").write_text("# My deck\n")
