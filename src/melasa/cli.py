@@ -46,6 +46,11 @@ def base_theme_import(theme: str | None) -> str | None:
 
     if theme in REVEALJS_THEMES_LIST:
         theme = f"{OUTPUT_ASSETS_DIRNAME}/reveal-js/dist/theme/{theme}.css"
+    elif not theme.startswith(("http://", "https://")):
+        raise click.ClickException(
+            f"unknown reveal.js theme {theme!r}; use a built-in name or an http(s) URL "
+            "(put local overrides in style.css)"
+        )
     return f'@import url("{theme}");'
 
 

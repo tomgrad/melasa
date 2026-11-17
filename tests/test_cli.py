@@ -1,5 +1,8 @@
 from pathlib import Path
 
+import click
+import pytest
+
 from click.testing import CliRunner
 from omegaconf import OmegaConf
 
@@ -199,3 +202,26 @@ def test_build_layers_deck_style_over_selected_theme(
     assert (site / "melasa.css").is_file()
     assert (site / "style.css").read_text() == ".reveal h1 { color: navy; }\n"
     assert Path.cwd() == tmp_path
+
+
+def test_stage_accepts_url_theme(tmp_path: Path) -> None:
+    deck = tmp_path / "deck"
+    deck.mkdir()
+    (deck / "mkslides.yml").write_text("slides:\n  theme: https://example.com/t.css\n")
+    stage_dir = tmp_path / "stage"
+    stage_dir.mkdir()
+
+    staged = stage(deck, stage_dir)
+
+    assert staged.theme.read_text().splitlines()[0] == '@import url("https://example.com/t.css");'
+
+
+def test_stage_rejects_unknown_local_theme(tmp_path: Path) -> None:
+    deck = tmp_path / "deck"
+    deck.mkdir()
+    (deck / "mkslides.yml").write_text("slides:\n  theme: custom.css\n")
+    stage_dir = tmp_path / "stage"
+    stage_dir.mkdir()
+
+    with pytest.raises(click.ClickException, match="custom.css"):
+        stage(deck, stage_dir)
