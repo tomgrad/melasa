@@ -13,7 +13,7 @@ from omegaconf import OmegaConf
 from melasa.optimize import DEFAULT_MAX_SIZE, DEFAULT_QUALITY, optimize_site
 
 THEME_NAME = "melasa-theme.css"
-BASE_THEME_NAME = "melasa-base.css"
+BASE_THEME_NAME = "melasa.css"
 STYLE_NAME = "style.css"
 DATA = resources.files("melasa") / "data"
 
@@ -53,7 +53,7 @@ class Staged(NamedTuple):
 
 def base_theme_import(theme: str | None) -> str | None:
     """Turn the reveal.js theme selected in the config into a CSS import."""
-    if not theme or theme in (THEME_NAME, "custom.css"):
+    if not theme or theme == THEME_NAME:
         return None
 
     from mkslides.constants import OUTPUT_ASSETS_DIRNAME, REVEALJS_THEMES_LIST
@@ -66,20 +66,15 @@ def base_theme_import(theme: str | None) -> str | None:
 def stage(deck: Path, stage_dir: Path) -> Staged:
     """Create the config and CSS layers in stage_dir.
 
-    A deck-local custom.css replaces the shared theme, while style.css is layered
-    on top of the active theme and only overrides what it declares.
+    Layers, later wins: reveal.js theme, melasa.css (structural), deck style.css.
     """
     config = OmegaConf.create(DATA.joinpath("mkslides.yml").read_text())
     local_config = deck / "mkslides.yml"
     if local_config.is_file():
         config = OmegaConf.merge(config, OmegaConf.load(local_config))
 
-    local_theme = deck / "custom.css"
     base_theme = stage_dir / BASE_THEME_NAME
-    if local_theme.is_file():
-        shutil.copy(local_theme, base_theme)
-    else:
-        base_theme.write_text(DATA.joinpath("custom.css").read_text())
+    base_theme.write_text(DATA.joinpath("melasa.css").read_text())
 
     style = deck / STYLE_NAME
     if not style.is_file():
@@ -92,12 +87,8 @@ def stage(deck: Path, stage_dir: Path) -> Staged:
     theme = stage_dir / THEME_NAME
     theme.write_text("\n".join(line for line in imports if line) + "\n")
 
-    local_pre = deck / "preprocessor.py"
-    if local_pre.is_file():
-        pre = local_pre.resolve()
-    else:
-        pre = stage_dir / "preprocessor.py"
-        pre.write_text(DATA.joinpath("preprocessor.py").read_text())
+    pre = stage_dir / "preprocessor.py"
+    pre.write_text(DATA.joinpath("preprocessor.py").read_text())
 
     config.slides.theme = THEME_NAME
     config.slides.preprocess_script = str(pre)

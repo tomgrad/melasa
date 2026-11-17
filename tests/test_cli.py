@@ -3,7 +3,7 @@ from pathlib import Path
 from click.testing import CliRunner
 from omegaconf import OmegaConf
 
-from melasa.cli import main, stage
+from melasa.cli import DATA, main, stage
 
 
 def test_init_creates_starter_files(tmp_path: Path, monkeypatch) -> None:
@@ -92,7 +92,7 @@ def test_stage_layers_deck_style_after_the_global_theme(tmp_path: Path) -> None:
 
     assert staged.theme.read_text().splitlines() == [
         '@import url("mkslides-assets/reveal-js/dist/theme/league.css");',
-        '@import url("melasa-base.css");',
+        '@import url("melasa.css");',
         '@import url("style.css");',
     ]
     assert staged.style == deck / "style.css"
@@ -110,16 +110,28 @@ def test_stage_omits_style_import_without_deck_style(tmp_path: Path) -> None:
     assert staged.style is None
 
 
-def test_stage_deck_custom_css_replaces_global_theme(tmp_path: Path) -> None:
+def test_stage_ignores_legacy_local_overrides(tmp_path: Path) -> None:
     deck = tmp_path / "deck"
     deck.mkdir()
-    (deck / "custom.css").write_text(".deck-only { color: red; }\n")
+    (deck / "custom.css").write_text(".x{}\n")
+    (deck / "preprocessor.py").write_text("raise SystemExit\n")
     stage_dir = tmp_path / "stage"
     stage_dir.mkdir()
 
     staged = stage(deck, stage_dir)
 
-    assert staged.base_theme.read_text() == ".deck-only { color: red; }\n"
+    assert staged.base_theme.read_text() == DATA.joinpath("melasa.css").read_text()
+    pre = OmegaConf.load(staged.config).slides.preprocess_script
+    assert pre.endswith("preprocessor.py")
+    assert not pre.startswith(str(deck))
+
+
+def test_melasa_css_is_structural_only() -> None:
+    css = DATA.joinpath("melasa.css").read_text()
+
+    assert ".cols21" in css and ".box" in css
+    assert "font-family" not in css
+    assert "darkorange" not in css
 
 
 def test_build_layers_deck_style_over_selected_theme(
@@ -139,9 +151,9 @@ def test_build_layers_deck_style_over_selected_theme(
     assert "melasa-theme.css" in (site / "index.html").read_text()
     assert (site / "melasa-theme.css").read_text().splitlines() == [
         '@import url("mkslides-assets/reveal-js/dist/theme/league.css");',
-        '@import url("melasa-base.css");',
+        '@import url("melasa.css");',
         '@import url("style.css");',
     ]
-    assert (site / "melasa-base.css").is_file()
+    assert (site / "melasa.css").is_file()
     assert (site / "style.css").read_text() == ".reveal h1 { color: navy; }\n"
     assert Path.cwd() == tmp_path

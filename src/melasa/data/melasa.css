@@ -1,0 +1,53 @@
+.box {
+  margin: auto;
+  margin-top: 20px;
+  margin-bottom: 50px;
+  width: 95%;
+  padding: 3px;
+  background-color: lightblue;
+  box-shadow: 20px 20px 50px 10px darkslategray;
+}
+
+.tight img {
+  margin: 0;
+}
+
+.cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  grid-gap: 1em;
+}
+
+.cols > div {
+  min-width: 0;
+}
+
+.cols21 {
+  grid-template-columns: 2fr 1fr;
+}
+
+.cols31 {
+  grid-template-columns: 3fr 1fr;
+}
+
+.cols12 {
+  grid-template-columns: 1fr 2fr;
+}
+
+.cols111 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.cols-top-align {
+  align-items: start;
+}
+
+.cols-bottom-align {
+  align-items: end;
+}
+
+.reveal .footnote {
+  font-size: 0.7em;
+  color: slategray;
+}
